@@ -12,9 +12,9 @@ model.summary()
 
 vectorDict = {}
 
-for fname in os.listdir('train'):
+for fname in os.listdir('images'):
     # process the files under the directory
-    img = image.load_img('train/'+fname, target_size=(224, 224))
+    img = image.load_img('images/'+fname, target_size=(224, 224))
     img_data = image.img_to_array(img)
     img_data = np.expand_dims(img_data, axis=0)
     img_data = preprocess_input(img_data)
