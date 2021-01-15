@@ -6,6 +6,7 @@ import numpy as np
 import os
 from scipy import spatial
 from sklearn.preprocessing import minmax_scale
+from numpy import savetxt
 
 ResNet18, preprocess_input = Classifiers.get('resnet18')
 #model = ResNet18((224, 224, 3), weights='imagenet')
@@ -17,7 +18,7 @@ model.summary()
 # model= Model(inputs=model1.input, outputs=model1.layers[-3].output)
 
 vectorDict = {}
-
+vectorList = []
 for fname in os.listdir('images'):
     # process the files under the directory
     img = image.load_img('images/'+fname, target_size=(224, 224))
@@ -30,9 +31,14 @@ for fname in os.listdir('images'):
 
     # mix-max scale the data between 0 and 1
     feature_scaled = minmax_scale(feature_np.flatten())
-    vectorDict[fname] = np.round(feature_scaled, 2)
+    feature_rounded = np.round(feature_scaled, 2)
+    vectorDict[fname] = feature_rounded
+    vectorList.append(feature_rounded)
+    print(fname)
 
-input = vectorDict.get('elon1.jpg')
+savetxt('data.txt', vectorList, delimiter=',', fmt='%1.2f')
+
+input = vectorDict.get('coin1.jpg')
 print(input)
 print(input.shape)
 
