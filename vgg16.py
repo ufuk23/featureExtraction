@@ -7,7 +7,7 @@ import os
 import numpy as np
 
 #model = VGG16(weights='imagenet', include_top=False)
-model = VGG16(weights='vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5', include_top=False)
+model = VGG16(weights='weights/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5', include_top=False)
 model.summary()
 
 vectorDict = {}
