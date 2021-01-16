@@ -27,9 +27,14 @@ for fname in os.listdir('images'):
     feature = model.predict(img_data)
     feature_np = np.array(feature)
 
-    # mix-max scale the data between 0 and 1
-    feature_scaled = minmax_scale(feature_np.flatten())
-    vectorDict[fname] = np.round(feature_scaled, 2)
+    # min-max scale the data between 0 and 1
+    scaledVec = minmax_scale(feature_np.flatten())
+    roundedVec = np.round(scaledVec, 2)
+    vectorDict[fname] = roundedVec
+
+np.savetxt('resnet50_vectors.csv', list(vectorDict.values()), delimiter=',', fmt='%1.2f')
+np.savetxt('resnet50_vectorNames.csv', list(vectorDict.keys()), fmt='%s')
+
 
 input = vectorDict.get('coin1.jpg')
 print(input)
