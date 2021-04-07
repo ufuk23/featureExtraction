@@ -1,3 +1,4 @@
 # weights
 *.h5
-/venv/
+venv/
+.idea/
