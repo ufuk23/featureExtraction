@@ -63,10 +63,12 @@ def create_top_n_vectors():
 
     ids = []
     vectors = []
+    db_result_dic = dict()
 
     for row in records:
         try:
             logger.info("id: " + str(row[0]) + " : " + str(row[1]))
+            # print(("id: " + str(row[0]) + " : " + str(row[1])))
 
             img = image.load_img(fs + row[1])
             img_data = prepare_image(img)
@@ -86,19 +88,15 @@ def create_top_n_vectors():
             ids.append(str(row[0]))
             vectors.append(result_vec.tolist())
 
-            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
+            db_result_dic[str(row[0])] = "1"
 
         except (FileNotFoundError, IOError):
             logger.error("File not found: " + fs + row[1])
-            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
-        except ValueError:
+            db_result_dic[str(row[0])] = "-1" # marking for FileNotFound
+        except ValueError as e:
             logger.error("Decoding JSON has failed: " + e)
-        except (requests.HTTPError, requests.RequestException) :
+        except (requests.HTTPError, requests.RequestException) as e:
             logger.error("HTTP/Request error occurred: " + e)
-        except Exception as e:
-            logger.error(e + " --> Trying to reconnect to the DB...")
-            conn.close()
-            connect_to_db()
 
     try:
         # save the n vector to the Milvus DB
@@ -110,9 +108,23 @@ def create_top_n_vectors():
 
     try:
         # commit for top N selected records
+        dict_ok = {key: value for (key, value) in db_result_dic.items() if value == '1'}
+        dict_err = {key: value for (key, value) in db_result_dic.items() if value == '-1'}
+
+        ok_list = tuple(dict_ok.keys())
+        conn.execute(
+            "UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(ok_list));
+
+        err_list = tuple(dict_err.keys())
+        conn.execute(
+            "UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(err_list));
+
         conn.commit()
+
     except Exception as e:
-        logger.error("DB Connection Commit Error: " + e)
+        logger.error(e + " --> Trying to reconnect to the DB...")
+        conn.close()
+        connect_to_db()
 
     return len(records)
 
