@@ -68,7 +68,7 @@ def create_top_n_vectors():
     for row in records:
         try:
             logger.info("id: " + str(row[0]) + " : " + str(row[1]))
-            # print(("id: " + str(row[0]) + " : " + str(row[1])))
+            print(("id: " + str(row[0]) + " : " + str(row[1])))
 
             img = image.load_img(fs + row[1])
             img_data = prepare_image(img)
@@ -112,12 +112,12 @@ def create_top_n_vectors():
         dict_err = {key: value for (key, value) in db_result_dic.items() if value == '-1'}
 
         ok_list = tuple(dict_ok.keys())
-        conn.execute(
-            "UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(ok_list));
+        if(len(ok_list)>0):
+            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(ok_list))
 
         err_list = tuple(dict_err.keys())
-        conn.execute(
-            "UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(err_list));
+        if(len(err_list)>0):
+            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(err_list))
 
         conn.commit()
 
