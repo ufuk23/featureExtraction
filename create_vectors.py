@@ -54,7 +54,7 @@ def connect_to_db():
 
 def create_top_n_vectors():
     cursor = conn.cursor()
-    cursor.execute("SELECT TOP 100 F.ESER_ID, F.FOTOGRAF_PATH FROM ESER_FOTOGRAF F "
+    cursor.execute("SELECT TOP 200 F.ESER_ID, F.FOTOGRAF_PATH FROM ESER_FOTOGRAF F "
                    "LEFT JOIN ESER E ON F.ESER_ID = E.ID "
                    "WHERE ANA_FOTOGRAF=1 AND DOLASIM_KOPYASI_PATH is NULL AND "
                    "E.AKTIF=1 AND E.SILINMIS=0 order by F.ESER_ID")
@@ -63,11 +63,12 @@ def create_top_n_vectors():
 
     ids = []
     vectors = []
-    db_result_dic = dict()
+    ok_list = []
+    err_list = []
 
     for row in records:
         try:
-            logger.info("id: " + str(row[0]) + " : " + str(row[1]))
+            logger.info("id:" + str(row[0]) + " : " + str(row[1]))
             print(("id: " + str(row[0]) + " : " + str(row[1])))
 
             img = image.load_img(fs + row[1])
@@ -88,15 +89,17 @@ def create_top_n_vectors():
             ids.append(str(row[0]))
             vectors.append(result_vec.tolist())
 
-            db_result_dic[str(row[0])] = "1"
+            ok_list.append(str(row[0]))
 
         except (FileNotFoundError, IOError):
             logger.error("File not found: " + fs + row[1])
-            db_result_dic[str(row[0])] = "-1" # marking for FileNotFound
+            err_list.append(str(row[0]))  # marking for FileNotFound
         except ValueError as e:
-            logger.error("Decoding JSON has failed: " + e)
+            logger.error("Decoding JSON has failed")
+            logger.error(e)
         except (requests.HTTPError, requests.RequestException) as e:
-            logger.error("HTTP/Request error occurred: " + e)
+            logger.error("HTTP/Request error occurred")
+            logger.error(e)
 
     try:
         # save the n vector to the Milvus DB
@@ -104,25 +107,20 @@ def create_top_n_vectors():
         resp_milvus = requests.post(milvus_url, data=data_milvus, headers=headers)
         # logger.info(resp_milvus)
     except Exception as e:
-        logger.error("MILVUS post request error: " + e)
+        logger.error("MILVUS post request error")
+        logger.error(e)
 
     try:
         # commit for top N selected records
-        dict_ok = {key: value for (key, value) in db_result_dic.items() if value == '1'}
-        dict_err = {key: value for (key, value) in db_result_dic.items() if value == '-1'}
-
-        ok_list = tuple(dict_ok.keys())
         if(len(ok_list)>0):
-            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(ok_list))
-
-        err_list = tuple(dict_err.keys())
+            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(ok_list)).replace(',)', ')')))
         if(len(err_list)>0):
-            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(err_list))
-
+            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(err_list)).replace(',)', ')')))
         conn.commit()
 
     except Exception as e:
-        logger.error(e + " --> Trying to reconnect to the DB...")
+        logger.error(e)
+        logger.error.info("Trying to reconnect to the DB...")
         conn.close()
         connect_to_db()
 
