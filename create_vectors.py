@@ -6,10 +6,21 @@ from scipy import spatial
 from sklearn.preprocessing import minmax_scale
 import json
 import time
+import logging
 
+# Gets or creates a logger
+logger = logging.getLogger(__name__)
+# set log level
+logger.setLevel(logging.DEBUG)
+# define file handler and set formatter
+file_handler = logging.FileHandler('log.log')
+formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
+file_handler.setFormatter(formatter)
+# add file handler to logger
+logger.addHandler(file_handler)
 
 conn = None
-GAP = 60  # seconds to sleep between the loop steps
+GAP = 0  # seconds to sleep between the loop steps
 
 # Model REST API - tf serving - predict service URL
 tf_serving_url = 'http://localhost:8501/v1/models/similarityModel:predict'
@@ -36,8 +47,9 @@ def connect_to_db():
     try:
         conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};"
                               "SERVER=172.17.20.41;PORT=1433;UID=muesd;PWD=Mues*dev.1;DATABASE=mues_dev")
+        logger.info('DB connected successfully')
     except Exception as e:
-        print(e)
+        logger.critical('DB Connection Error: ' + e)
 
 
 def create_top_n_vectors():
@@ -49,10 +61,13 @@ def create_top_n_vectors():
 
     records = cursor.fetchall()
 
+    ids = []
+    vectors = []
+
     for row in records:
-        print("id: ", row[0], row[1])
-        print("\n")
         try:
+            logger.info("id: " + str(row[0]) + " : " + str(row[1]))
+
             img = image.load_img(fs + row[1])
             img_data = prepare_image(img)
 
@@ -65,49 +80,50 @@ def create_top_n_vectors():
             # min-max scale the data between 0 and 1
             scaled_vec = minmax_scale(feature_np.flatten())
             result_vec = np.round(scaled_vec, 2)
-            #print(result_vec)
+            # print(result_vec)
 
-            # save the vector to the Milvus DB
-            ids = []
-            vectors = []
+            # for milvus request
             ids.append(str(row[0]))
             vectors.append(result_vec.tolist())
-            data_milvus = json.dumps({"ids": ids, "vectors": vectors})
-            resp_milvus = requests.post(milvus_url, data=data_milvus, headers=headers)
-            print(resp_milvus)
 
             conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
 
         except (FileNotFoundError, IOError):
-            print("File not found: " + fs + row[1])
+            logger.error("File not found: " + fs + row[1])
             conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
         except ValueError:
-            print("Decoding JSON has failed")
+            logger.error("Decoding JSON has failed: " + e)
         except (requests.HTTPError, requests.RequestException) :
-            print("HTTP/Request error occurred: " + e)
+            logger.error("HTTP/Request error occurred: " + e)
         except Exception as e:
-            print(e)
+            logger.error(e + " --> Trying to reconnect to the DB...")
+            conn.close()
+            connect_to_db()
 
-    # commit for top N selected records
-    conn.commit()
+    try:
+        # save the n vector to the Milvus DB
+        data_milvus = json.dumps({"ids": ids, "vectors": vectors})
+        resp_milvus = requests.post(milvus_url, data=data_milvus, headers=headers)
+        # logger.info(resp_milvus)
+    except Exception as e:
+        logger.error("MILVUS post request error: " + e)
+
+    try:
+        # commit for top N selected records
+        conn.commit()
+    except Exception as e:
+        logger.error("DB Connection Commit Error: " + e)
 
     return len(records)
 
 
 def create_all():
     while True:
-        try:
-            records_len = create_top_n_vectors()
-            print(str(records_len) + " vectors created successfully")
-            if records_len == 0:
-                print("No record found to get the vector")
-            time.sleep(GAP)
-        except Exception as e:
-            print(e)
-        finally:
-            print("Trying to reconnect to the DB")
-            conn.close()
-            connect_to_db()
+        records_len = create_top_n_vectors()
+        logger.info(str(records_len) + " vectors created successfully")
+        if records_len == 0:
+            logger.info("No record found to get the vector")
+        time.sleep(GAP)
 
 
 if __name__ == "__main__":
