@@ -45,7 +45,7 @@ def create_top_n_vectors():
     cursor.execute("SELECT TOP 100 F.ESER_ID, F.FOTOGRAF_PATH FROM ESER_FOTOGRAF F "
                    "LEFT JOIN ESER E ON F.ESER_ID = E.ID "
                    "WHERE ANA_FOTOGRAF=1 AND DOLASIM_KOPYASI_PATH is NULL AND "
-                   "E.AKTIF=1 AND E.SILINMIS=0 order by F.ESER_ID desc")
+                   "E.AKTIF=1 AND E.SILINMIS=0 order by F.ESER_ID")
 
     records = cursor.fetchall()
 
@@ -65,24 +65,22 @@ def create_top_n_vectors():
             # min-max scale the data between 0 and 1
             scaled_vec = minmax_scale(feature_np.flatten())
             result_vec = np.round(scaled_vec, 2)
-            print(result_vec)
+            #print(result_vec)
 
             # save the vector to the Milvus DB
             ids = []
             vectors = []
             ids.append(str(row[0]))
-            vectors.append(result_vec)
+            vectors.append(result_vec.tolist())
             data_milvus = json.dumps({"ids": ids, "vectors": vectors})
             resp_milvus = requests.post(milvus_url, data=data_milvus, headers=headers)
             print(resp_milvus)
 
-            conn.execute(
-                "UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
+            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
 
         except (FileNotFoundError, IOError):
             print("File not found: " + fs + row[1])
-            conn.execute(
-                "UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
+            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID=" + str(row[0]));
         except ValueError:
             print("Decoding JSON has failed")
         except (requests.HTTPError, requests.RequestException) :
