@@ -8,15 +8,12 @@ import json
 import time
 import logging
 
-# Gets or creates a logger
+# logger
 logger = logging.getLogger(__name__)
-# set log level
 logger.setLevel(logging.DEBUG)
-# define file handler and set formatter
 file_handler = logging.FileHandler('log.log')
 formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
 file_handler.setFormatter(formatter)
-# add file handler to logger
 logger.addHandler(file_handler)
 
 conn = None
@@ -36,7 +33,6 @@ milvus_url = 'http://localhost:19121/collections/artifact/vectors'
 def prepare_image(img, target_size=(224,224)):
     img = img.resize(target_size)
     img = image.img_to_array(img)
-    # img = np.array(img)
     img = np.expand_dims(img, axis=0)
     # img = preprocess_input(img)
     return img
@@ -120,7 +116,7 @@ def create_top_n_vectors():
 
     except Exception as e:
         logger.error(e)
-        logger.error.info("Trying to reconnect to the DB...")
+        logger.info("Trying to reconnect to the DB...")
         conn.close()
         connect_to_db()
 

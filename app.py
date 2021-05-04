@@ -37,7 +37,7 @@ def load_image_featureVectors(path):
         # min-max scale the data between 0 and 1
         scaledVec = minmax_scale(feature_np.flatten())
         roundedVec = np.round(scaledVec, 2)
-        # featureDict[name] = roundedVec
+        featureDict[name] = roundedVec
 
     print ("image vectors loaded: " , len(featureDict))
 
