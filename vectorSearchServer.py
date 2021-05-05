@@ -4,16 +4,19 @@ from sklearn.preprocessing import minmax_scale
 from PIL import Image
 import flask
 import io
+import os
 import json
 import requests
 import logging
 
 
 app = flask.Flask(__name__)
+UPLOAD_FOLDER = "/home/muesd/similarity/uploads"
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # logger
 app.logger.setLevel(logging.DEBUG)
-file_handler = logging.FileHandler('log.log')
+file_handler = logging.FileHandler('flask.log')
 formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
 file_handler.setFormatter(formatter)
 app.logger.addHandler(file_handler)
@@ -46,10 +49,20 @@ def predict():
 
         if flask.request.method == "POST":
             if flask.request.files.get("image"):
+
+                #file = flask.request.files["image"]
+                #path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+                #file.save(path)
+
+                # TODO: load_img de resize olmasiyla olmamasi arasinda sonuc vektor fark ediyor
+                # test_img = image.load_img(path, target_size=(224,224))
+                #test_img = image.load_img(path) #  bu sekilde PIL imdage load ile ayni oluyor
+
                 test_img = flask.request.files["image"].read()
                 test_img = Image.open(io.BytesIO(test_img))
-                # fileName = flask.request.args.get("f")
+                # fileName = flask.request.args.get("filename")
 
+        print(test_img)
         img_data = prepare_image(test_img)
 
         # prepare for tf serving service
@@ -62,21 +75,22 @@ def predict():
         scaled_vec = minmax_scale(feature_np.flatten())
         result_vec = np.round(scaled_vec, 2)
         vectors.append(result_vec.tolist())
+        print(result_vec)
 
         json_milvus = {
-            "search": {
-                "topk": 10,
-                "vectors": vectors,
-                "params": {
-                    "nprobe": 16
+            'search': {
+                'topk': 10,
+                'vectors': vectors,
+                'params': {
+                    'nprobe': 16
                 }
             }
         }
 
-        resp_milvus = requests.put(milvus_search_url, data=json.dumps(json_milvus), headers=headers)
-
+        resp_milvus = requests.put(milvus_search_url, data=json.dumps(json_milvus), headers=headers) 
         # app.logger.info("rep_milvus")
-        return flask.jsonify(resp_milvus)
+        print(resp_milvus.text)
+        return resp_milvus.text
 
     except ValueError as e:
         app.logger.error("Decoding JSON has failed")
@@ -85,7 +99,7 @@ def predict():
         app.logger.error("HTTP/Request error occurred")
         app.logger.error(e)
 
-    return "Unexpected Error"
+    return "{'error': 'Unexpected Error'}"
 
 
 if __name__ == "__main__":

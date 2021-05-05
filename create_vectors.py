@@ -8,12 +8,15 @@ import json
 import time
 import logging
 
-# logger
+# Gets or creates a logger
 logger = logging.getLogger(__name__)
+# set log level
 logger.setLevel(logging.DEBUG)
+# define file handler and set formatter
 file_handler = logging.FileHandler('log.log')
 formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
 file_handler.setFormatter(formatter)
+# add file handler to logger
 logger.addHandler(file_handler)
 
 conn = None
@@ -33,6 +36,7 @@ milvus_url = 'http://localhost:19121/collections/artifact/vectors'
 def prepare_image(img, target_size=(224,224)):
     img = img.resize(target_size)
     img = image.img_to_array(img)
+    # img = np.array(img)
     img = np.expand_dims(img, axis=0)
     # img = preprocess_input(img)
     return img
@@ -45,7 +49,7 @@ def connect_to_db():
                               "SERVER=172.17.20.41;PORT=1433;UID=muesd;PWD=Mues*dev.1;DATABASE=mues_dev")
         logger.info('DB connected successfully')
     except Exception as e:
-        logger.critical('DB Connection Error: ' + e)
+        logger.critical(e)
 
 
 def create_top_n_vectors():
@@ -127,9 +131,10 @@ def create_all():
     while True:
         records_len = create_top_n_vectors()
         logger.info(str(records_len) + " vectors created successfully")
+        time.sleep(GAP)
         if records_len == 0:
             logger.info("No record found to get the vector")
-        time.sleep(GAP)
+            break
 
 
 if __name__ == "__main__":
