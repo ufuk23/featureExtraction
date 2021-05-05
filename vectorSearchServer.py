@@ -22,11 +22,11 @@ file_handler.setFormatter(formatter)
 app.logger.addHandler(file_handler)
 
 # Model REST API - tf serving - predict service URL
-tf_serving_url = 'http://localhost:8501/v1/models/similarityModel:predict'
+tf_serving_url = 'http://localhost:8501/v1/models/resnet50:predict'
 headers = {"content-type": "application/json"}
 
 # MILVUS REST API URL
-milvus_search_url = 'http://localhost:19121/collections/artifact/vectors'
+milvus_search_url = 'http://localhost:19121/collections/resnet50/vectors'
 
 
 def prepare_image(img, target_size=(224,224)):

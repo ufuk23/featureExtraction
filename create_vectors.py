@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 # set log level
 logger.setLevel(logging.DEBUG)
 # define file handler and set formatter
-file_handler = logging.FileHandler('log.log')
+file_handler = logging.FileHandler('log_create_vector.log')
 formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
 file_handler.setFormatter(formatter)
 # add file handler to logger
@@ -23,14 +23,16 @@ conn = None
 GAP = 0  # seconds to sleep between the loop steps
 
 # Model REST API - tf serving - predict service URL
-tf_serving_url = 'http://localhost:8501/v1/models/similarityModel:predict'
+# tf_serving_url = 'http://localhost:8501/v1/models/similarityModel:predict'
+tf_serving_url = 'http://localhost:8501/v1/models/resnet50:predict'
 headers = {"content-type": "application/json"}
 
 # mount path to access the file Server
 fs = "/mnt/muesfs/mues-images/image/ak/"
 
 # MILVUS REST API URL
-milvus_url = 'http://localhost:19121/collections/artifact/vectors'
+#milvus_url = 'http://localhost:19121/collections/artifact/vectors'
+milvus_url = 'http://localhost:19121/collections/resnet50/vectors'
 
 
 def prepare_image(img, target_size=(224,224)):
@@ -56,7 +58,7 @@ def create_top_n_vectors():
     cursor = conn.cursor()
     cursor.execute("SELECT TOP 200 F.ESER_ID, F.FOTOGRAF_PATH FROM ESER_FOTOGRAF F "
                    "LEFT JOIN ESER E ON F.ESER_ID = E.ID "
-                   "WHERE ANA_FOTOGRAF=1 AND DOLASIM_KOPYASI_PATH is NULL AND "
+                   "WHERE permanentId is not NULL AND ANA_FOTOGRAF=1 AND DOLASIM_KOPYASI_PATH is NULL AND "
                    "E.AKTIF=1 AND E.SILINMIS=0 order by F.ESER_ID")
 
     records = cursor.fetchall()
