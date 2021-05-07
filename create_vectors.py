@@ -1,4 +1,5 @@
-import pyodbc
+#import pyodbc
+import pymssql
 from tensorflow.keras.preprocessing import image
 import requests
 import numpy as np
@@ -20,7 +21,7 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 conn = None
-GAP = 0  # seconds to sleep between the loop steps
+GAP = 60  # seconds to sleep between the loop steps
 
 # Model REST API - tf serving - predict service URL
 # tf_serving_url = 'http://localhost:8501/v1/models/similarityModel:predict'
@@ -47,8 +48,7 @@ def prepare_image(img, target_size=(224,224)):
 def connect_to_db():
     global conn
     try:
-        conn = pyodbc.connect("DRIVER={ODBC Driver 17 for SQL Server};"
-                              "SERVER=172.17.20.41;PORT=1433;UID=muesd;PWD=Mues*dev.1;DATABASE=mues_dev")
+        conn = pymssql.connect(server='172.17.20.41', port='1433', user='muesd', password='Mues*dev.1', database='mues_dev')
         logger.info('DB connected successfully')
     except Exception as e:
         logger.critical(e)
@@ -58,7 +58,7 @@ def create_top_n_vectors():
     cursor = conn.cursor()
     cursor.execute("SELECT TOP 200 F.ESER_ID, F.FOTOGRAF_PATH FROM ESER_FOTOGRAF F "
                    "LEFT JOIN ESER E ON F.ESER_ID = E.ID "
-                   "WHERE permanentId is not NULL AND ANA_FOTOGRAF=1 AND DOLASIM_KOPYASI_PATH is NULL AND "
+                   "WHERE permanentId is not NULL AND ANA_FOTOGRAF=1 AND FEATURE_VECTOR_STATE is NULL AND "
                    "E.AKTIF=1 AND E.SILINMIS=0 order by F.ESER_ID")
 
     records = cursor.fetchall()
@@ -115,9 +115,9 @@ def create_top_n_vectors():
     try:
         # commit for top N selected records
         if(len(ok_list)>0):
-            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(ok_list)).replace(',)', ')')))
+            cursor.execute("UPDATE ESER_FOTOGRAF set FEATURE_VECTOR_STATE='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(ok_list)).replace(',)', ')')))
         if(len(err_list)>0):
-            conn.execute("UPDATE ESER_FOTOGRAF set DOLASIM_KOPYASI_PATH='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(err_list)).replace(',)', ')')))
+            cursor.execute("UPDATE ESER_FOTOGRAF set FEATURE_VECTOR_STATE='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(err_list)).replace(',)', ')')))
         conn.commit()
 
     except Exception as e:
@@ -134,9 +134,6 @@ def create_all():
         records_len = create_top_n_vectors()
         logger.info(str(records_len) + " vectors created successfully")
         time.sleep(GAP)
-        if records_len == 0:
-            logger.info("No record found to get the vector")
-            break
 
 
 if __name__ == "__main__":
