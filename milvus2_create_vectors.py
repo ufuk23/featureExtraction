@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # set log level
 logger.setLevel(logging.DEBUG)
 # define file handler and set formatter
-file_handler = logging.FileHandler('log_KAM_create_vector.log')
+file_handler = logging.FileHandler('log_create_vector.log')
 formatter = logging.Formatter('%(asctime)s : %(levelname)s : %(name)s : %(message)s')
 file_handler.setFormatter(formatter)
 # add file handler to logger
@@ -32,8 +32,9 @@ GAP = 60  # seconds to sleep between the loop steps
 # handle milvus collection
 print("start connecting to Milvus")
 connections.connect("default", host="localhost", port="19530")
-has = utility.has_collection("art")
+has = utility.has_collection("artifact")
 print(f"Does collection art exist in Milvus: {has}")
+logger.info(f"connected successfuly (Milvus): {has}")
 
 fields = [
     FieldSchema(name="pk", dtype=DataType.INT64, is_primary=True, auto_id=False),
@@ -41,9 +42,9 @@ fields = [
     FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048)
 ]
 
-schema = CollectionSchema(fields, "art is the simplest demo to introduce the APIs")
-print("Collection art")
-art = Collection("art", schema, consistency_level="Strong")
+schema = CollectionSchema(fields, "artifact is the simplest demo to introduce the APIs")
+print("Collection artifact")
+artifact = Collection("artifact", schema, consistency_level="Strong")
 
 
 # Model REST API - tf serving - predict service URL
@@ -53,11 +54,11 @@ headers = {"content-type": "application/json"}
 
 # mount path to access the file Server
 # fs = "/mnt/muesfs/mues-images/image/ak/" # prod
-fs = "/mnt/muesfs/mues/mueskam-images/dev/image/ak/" # dev
+fs = "/mnt/muesfs/mues/mues-images/dev/image/ak/" # dev
 
 # MILVUS REST API URL
 #milvus_url = 'http://localhost:19121/collections/artifact/vectors'
-milvus_url = 'http://localhost:19121/collections/kam/vectors'
+#milvus_url = 'http://localhost:19121/collections/kam/vectors'
 
 
 def prepare_image(img, target_size=(224,224)):
@@ -80,9 +81,9 @@ def connect_to_db():
 
 def create_top_n_vectors():
     cursor = conn.cursor()
-    cursor.execute("select DISTINCT TOP 100 A.ID, F.FOTOGRAF_PATH from Kam_Artifact A "
-                   "LEFT JOIN Kam_ArtifactPhotograph F ON A.ID=F.artifactId "
-                   "WHERE A.AKTIF=1 AND A.SILINMIS=0 AND F.ANA_FOTOGRAF=1 AND F.FEATURE_VECTOR_STATE is NULL ORDER BY A.ID")
+    cursor.execute("select DISTINCT TOP 100 F.ESER_ID, F.FOTOGRAF_PATH from ESER_FOTOGRAF F "
+                   "LEFT JOIN ESER E ON F.ESER_ID=E.ID "
+                   "WHERE permanentId is not NULL AND E.AKTIF=1 AND E.SILINMIS=0 AND F.ANA_FOTOGRAF=1 AND F.FEATURE_VECTOR_STATE is NULL ORDER BY F.ESER_ID")
 
     records = cursor.fetchall()
 
@@ -130,21 +131,22 @@ def create_top_n_vectors():
             logger.error(e)
 
     try:
-        # save the n vector to the Milvus DB
-        entities = [ids, artifact_types, vectors]
-        # print(entities)
-        insert_result = art.insert(entities)
-        print(f"Number of entities in Milvus: {art.num_entities}")  # check the num_entites
+        # save the n vector to the Milvus DB 
+        if(len(vectors) > 0):
+            entities = [ids, artifact_types, vectors]
+            # print(entities)
+            insert_result = artifact.insert(entities)
+            # logger.info(f"Number of entities in Milvus: {artifact.num_entities}")  # check the num_entites
     except Exception as e:
-        logger.error("MILVUS post request error (KAM)")
+        logger.error("MILVUS post request error")
         logger.error(e)
 
     try:
         # commit for top N selected records
         if(len(ok_list)>0):
-            cursor.execute("UPDATE Kam_ArtifactPhotograph set FEATURE_VECTOR_STATE='1' where ANA_FOTOGRAF=1 AND artifactId in {}".format(str(tuple(ok_list)).replace(',)', ')')))
+            cursor.execute("UPDATE ESER_FOTOGRAF set FEATURE_VECTOR_STATE='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(ok_list)).replace(',)', ')')))
         if(len(err_list)>0):
-            cursor.execute("UPDATE Kam_ArtifactPhotograph set FEATURE_VECTOR_STATE='-1' where ANA_FOTOGRAF=1 AND artifactId in {}".format(str(tuple(err_list)).replace(',)', ')')))
+            cursor.execute("UPDATE ESER_FOTOGRAF set FEATURE_VECTOR_STATE='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(err_list)).replace(',)', ')')))
 
         conn.commit()
 
@@ -160,12 +162,9 @@ def create_top_n_vectors():
 def create_all():
     while True:
         records_len = create_top_n_vectors()
-        print(str(records_len) + " KAM_vectors created successfully")
-        logger.info(str(records_len) + " KAM_vectors created successfully")
+        print(str(records_len) + " vectors created successfully")
+        logger.info(str(records_len) + " vectors created successfully")
         time.sleep(GAP)
-        # if records_len == 0:
-            # logger.info("No record found to get the KAM vector")
-            # break
 
 
 if __name__ == "__main__":
