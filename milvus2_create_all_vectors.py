@@ -1,5 +1,6 @@
 import pymssql
-from tensorflow.keras.preprocessing import image
+#from tensorflow.keras.preprocessing import image
+from PIL import Image
 import requests
 import numpy as np
 from scipy import spatial
@@ -67,8 +68,7 @@ def prepare_image(img, target_size=(224,224)):
     if img.mode != 'RGB':
         img = img.convert('RGB')
 
-    img = image.img_to_array(img)
-    # img = np.array(img)
+    img = np.array(img)
     img = np.expand_dims(img, axis=0)
     # img = preprocess_input(img)
     return img
@@ -186,7 +186,7 @@ def create_KAM_vectors():
             logger.info("uid:" + str(row[0]) + " : " + str(row[1]))
             print(("uid: " + str(row[0]) + " : " + str(row[1])))
 
-            img = image.load_img(fs_kam + row[1])
+            img = Image.open(fs_kam + row[1])
             img_data = prepare_image(img)
 
             # prepare for tf serving service
