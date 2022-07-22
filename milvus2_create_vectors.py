@@ -1,5 +1,6 @@
 import pymssql
-from tensorflow.keras.preprocessing import image
+#from tensorflow.keras.preprocessing import image
+from PIL import Image
 import requests
 import numpy as np
 from scipy import spatial
@@ -27,7 +28,7 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 conn = None
-GAP = 60  # seconds to sleep between the loop steps
+GAP = 2  # seconds to sleep between the loop steps
 
 # handle milvus collection
 print("start connecting to Milvus")
@@ -42,7 +43,7 @@ fields = [
     FieldSchema(name="embeddings", dtype=DataType.FLOAT_VECTOR, dim=2048)
 ]
 
-schema = CollectionSchema(fields, "artifact is the simplest demo to introduce the APIs")
+schema = CollectionSchema(fields, "artifact")
 print("Collection artifact")
 artifact = Collection("artifact", schema, consistency_level="Strong")
 
@@ -63,8 +64,11 @@ fs = "/mnt/muesfs/mues/mues-images/dev/image/ak/" # dev
 
 def prepare_image(img, target_size=(224,224)):
     img = img.resize(target_size)
-    img = image.img_to_array(img)
-    # img = np.array(img)
+    # img = image.img_to_array(img)
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+
+    img = np.array(img)
     img = np.expand_dims(img, axis=0)
     # img = preprocess_input(img)
     return img
@@ -98,7 +102,8 @@ def create_top_n_vectors():
             logger.info("id:" + str(row[0]) + " : " + str(row[1]))
             print(("id: " + str(row[0]) + " : " + str(row[1])))
 
-            img = image.load_img(fs + row[1])
+            img = Image.open(fs + row[1])
+            # img = image.load_img(fs + row[1])
             img_data = prepare_image(img)
 
             # prepare for tf serving service
@@ -136,7 +141,7 @@ def create_top_n_vectors():
             entities = [ids, artifact_types, vectors]
             # print(entities)
             insert_result = artifact.insert(entities)
-            # logger.info(f"Number of entities in Milvus: {artifact.num_entities}")  # check the num_entites
+            # print(f"Number of entities in Milvus: {artifact.num_entities}")  # check the num_entites
     except Exception as e:
         logger.error("MILVUS post request error")
         logger.error(e)
