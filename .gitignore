@@ -2,3 +2,5 @@
 *.h5
 venv/
 .idea/
+resnet50/
+

@@ -11,8 +11,8 @@ import logging
 
 
 app = flask.Flask(__name__)
-UPLOAD_FOLDER = "/home/muesd/similarity/uploads"
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+#UPLOAD_FOLDER = "/home/muesd/similarity/uploads"
+#app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # logger
 app.logger.setLevel(logging.DEBUG)
@@ -45,7 +45,6 @@ def predict():
         vectors = []
 
         app.logger.info("prediction service has called")
-        print("prediction service has called")
 
         if flask.request.method == "POST":
             if flask.request.files.get("image"):
@@ -57,7 +56,7 @@ def predict():
                 # TODO: load_img de resize olmasiyla olmamasi arasinda sonuc vektor fark ediyor
                 # test_img = image.load_img(path, target_size=(224,224))
                 #test_img = image.load_img(path) #  bu sekilde PIL imdage load ile ayni oluyor
-
+                print("POST req is done")
                 test_img = flask.request.files["image"].read()
                 test_img = Image.open(io.BytesIO(test_img))
                 # fileName = flask.request.args.get("filename")

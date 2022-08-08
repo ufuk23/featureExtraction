@@ -1,4 +1,3 @@
-#import pyodbc
 import pymssql
 from tensorflow.keras.preprocessing import image
 import requests
@@ -21,7 +20,7 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 conn = None
-GAP = 60  # seconds to sleep between the loop steps
+GAP = 0  # seconds to sleep between the loop steps
 
 # Model REST API - tf serving - predict service URL
 # tf_serving_url = 'http://localhost:8501/v1/models/similarityModel:predict'
@@ -29,7 +28,8 @@ tf_serving_url = 'http://localhost:8501/v1/models/resnet50:predict'
 headers = {"content-type": "application/json"}
 
 # mount path to access the file Server
-fs = "/mnt/muesfs/mues-images/image/ak/"
+# fs = "/mnt/muesfs/mues-images/image/ak/" # prod
+fs = "/mnt/muesfs/mues/mues-images/dev/image/ak/" # dev
 
 # MILVUS REST API URL
 #milvus_url = 'http://localhost:19121/collections/artifact/vectors'
@@ -48,7 +48,7 @@ def prepare_image(img, target_size=(224,224)):
 def connect_to_db():
     global conn
     try:
-        conn = pymssql.connect(server='172.17.20.41', port='1433', user='muesd', password='Mues*dev.1', database='mues_dev')
+        conn = pymssql.connect(server='10.1.37.177', port='1033', user='muesd', password='Mues*dev.1', database='mues_dev')
         logger.info('DB connected successfully')
     except Exception as e:
         logger.critical(e)
@@ -118,6 +118,7 @@ def create_top_n_vectors():
             cursor.execute("UPDATE ESER_FOTOGRAF set FEATURE_VECTOR_STATE='1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(ok_list)).replace(',)', ')')))
         if(len(err_list)>0):
             cursor.execute("UPDATE ESER_FOTOGRAF set FEATURE_VECTOR_STATE='-1' where ANA_FOTOGRAF=1 AND ESER_ID in {}".format(str(tuple(err_list)).replace(',)', ')')))
+
         conn.commit()
 
     except Exception as e:
@@ -134,6 +135,9 @@ def create_all():
         records_len = create_top_n_vectors()
         logger.info(str(records_len) + " vectors created successfully")
         time.sleep(GAP)
+        if records_len == 0:
+            logger.info("No record found to get the vector")
+            break
 
 
 if __name__ == "__main__":

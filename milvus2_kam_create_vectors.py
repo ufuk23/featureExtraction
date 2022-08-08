@@ -1,5 +1,5 @@
 import pymssql
-from tensorflow.keras.preprocessing import image
+from PIL import Image
 import requests
 import numpy as np
 from scipy import spatial
@@ -27,7 +27,7 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 conn = None
-GAP = 10  # seconds to sleep between the loop steps
+GAP = 60  # seconds to sleep between the loop steps
 
 # handle milvus collection
 print("start connecting to Milvus")
@@ -67,8 +67,7 @@ def prepare_image(img, target_size=(224,224)):
     if img.mode != 'RGB':
         img = img.convert('RGB')
 
-    img = image.img_to_array(img)
-    # img = np.array(img)
+    img = np.array(img)
     img = np.expand_dims(img, axis=0)
     # img = preprocess_input(img)
     return img
@@ -102,7 +101,7 @@ def create_top_n_vectors():
             logger.info("uid:" + str(row[0]) + " : " + str(row[1]))
             print(("uid: " + str(row[0]) + " : " + str(row[1])))
 
-            img = image.load_img(fs + row[1])
+            img = Image.open(fs + row[1])
             img_data = prepare_image(img)
 
             # prepare for tf serving service

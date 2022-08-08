@@ -1,9 +1,7 @@
-#import pyodbc
 import pymssql
 from tensorflow.keras.preprocessing import image
 
-conn = pymssql.connect(server='172.17.20.41', port='1433', user='muesd', password='Mues*dev.1', database='mues_dev')
-
+conn = pymssql.connect(server='10.1.37.177', port='1033', user='muesd', password='Mues*dev.1', database='mues_dev')
 cursor = conn.cursor()
 cursor.execute("SELECT TOP 100 F.ESER_ID, F.FOTOGRAF_PATH FROM ESER_FOTOGRAF F LEFT JOIN ESER E ON F.ESER_ID = E.ID WHERE ANA_FOTOGRAF = 1 AND E.AKTIF = 1 AND E.SILINMIS = 0 order by F.ESER_ID")
 
