@@ -73,17 +73,25 @@ artifact = Collection("artifact", schema, consistency_level="Strong")
 # - either automatically generated primary keys by Milvus if auto_id=True in the schema;
 # - or the existing primary key field from the entities if auto_id=False in the schema.
 print(fmt.format("Start inserting entities"))
-num_entities = 10
-entities = [
-    # provide the pk field because `auto_id` is set to False
-    [i for i in range(num_entities)],
-    [random.randrange(1, 5) for _ in range(num_entities)],  # field artifact_type
-    [[round(random.random(), 2) for _ in range(2048)] for _ in range(num_entities)],  # field embeddings
-]
+num_entities = 100
+index = num_entities
+id = 0
 
-insert_result = artifact.insert(entities)
+for k in range(50):
 
-print(f"Number of entities in Milvus: {artifact.num_entities}")  # check the num_entites
+    entities = [
+        # provide the pk field because `auto_id` is set to False
+        [i for i in range(id, index)],
+        [random.randrange(1, 5) for _ in range(num_entities)],  # field artifact_type
+        [[round(random.random(), 2) for _ in range(2048)] for _ in range(num_entities)],  # field embeddings
+    ]
+
+    print([i for i in range(id, index)])
+    print([random.randrange(1, 5) for _ in range(num_entities)])
+    id = index
+    index = index + num_entities
+    insert_result = artifact.insert(entities)
+    # print(f"Number of entities in Milvus: {artifact.num_entities}")  # check the num_entites
 
 ################################################################################
 # 4. create index
@@ -96,7 +104,7 @@ index = {
     "params": {"nlist": 128},
 }
 
-artifact.create_index("embeddings", index)
+#artifact.create_index("embeddings", index)
 
 ################################################################################
 # 5. search, query, and hybrid search

@@ -1,5 +1,5 @@
 import pymssql
-from tensorflow.keras.preprocessing import image
+from PIL import Image
 import requests
 import numpy as np
 from scipy import spatial
@@ -7,6 +7,13 @@ from sklearn.preprocessing import minmax_scale
 import json
 import time
 import logging
+from pymilvus import (
+    connections,
+    utility,
+    FieldSchema, CollectionSchema, DataType,
+    Collection,
+)
+
 
 # Gets or creates a logger
 logger = logging.getLogger(__name__)
@@ -20,7 +27,7 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 conn = None
-GAP = 60  # seconds to sleep between the loop steps
+GAP = 2  # seconds to sleep between the loop steps
 
 # Model REST API - tf serving - predict service URL
 # tf_serving_url = 'http://localhost:8501/v1/models/similarityModel:predict'
@@ -31,15 +38,17 @@ headers = {"content-type": "application/json"}
 # fs = "/mnt/muesfs/mues-images/image/ak/" # prod
 fs = "/mnt/muesfs/mues/mues-images/dev/image/ak/" # dev
 
-# MILVUS REST API URL
-#milvus_url = 'http://localhost:19121/collections/artifact/vectors'
-milvus_url = 'http://localhost:19121/collections/resnet50/vectors'
+# QDRANT REST API URL
+qdrant_url = 'http://localhost:6333/collections/artifact/points'
 
 
 def prepare_image(img, target_size=(224,224)):
     img = img.resize(target_size)
-    img = image.img_to_array(img)
-    # img = np.array(img)
+    # img = image.img_to_array(img)
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+
+    img = np.array(img)
     img = np.expand_dims(img, axis=0)
     # img = preprocess_input(img)
     return img
@@ -48,7 +57,7 @@ def prepare_image(img, target_size=(224,224)):
 def connect_to_db():
     global conn
     try:
-        conn = pymssql.connect(server='10.1.37.177', port='1033', user='muesd', password='Mues*dev.1', database='mues_test')
+        conn = pymssql.connect(server='10.1.37.177', port='1033', user='muest', password='Mues*test.1', database='mues_test')
         logger.info('DB connected successfully')
     except Exception as e:
         logger.critical(e)
@@ -56,15 +65,15 @@ def connect_to_db():
 
 def create_top_n_vectors():
     cursor = conn.cursor()
-    cursor.execute("SELECT TOP 200 F.ESER_ID, F.FOTOGRAF_PATH FROM ESER_FOTOGRAF F "
-                   "LEFT JOIN ESER E ON F.ESER_ID = E.ID "
-                   "WHERE permanentId is not NULL AND ANA_FOTOGRAF=1 AND FEATURE_VECTOR_STATE is NULL AND "
-                   "E.AKTIF=1 AND E.SILINMIS=0 order by F.ESER_ID")
+    cursor.execute("select DISTINCT TOP 100 F.ESER_ID, F.FOTOGRAF_PATH from ESER_FOTOGRAF F "
+                   "LEFT JOIN ESER E ON F.ESER_ID=E.ID "
+                   "WHERE permanentId is not NULL AND E.AKTIF=1 AND E.SILINMIS=0 AND F.ANA_FOTOGRAF=1 AND F.FEATURE_VECTOR_STATE is NULL ORDER BY F.ESER_ID")
 
     records = cursor.fetchall()
 
     ids = []
     vectors = []
+    artifact_types = []
     ok_list = []
     err_list = []
 
@@ -73,7 +82,8 @@ def create_top_n_vectors():
             logger.info("id:" + str(row[0]) + " : " + str(row[1]))
             print(("id: " + str(row[0]) + " : " + str(row[1])))
 
-            img = image.load_img(fs + row[1])
+            img = Image.open(fs + row[1])
+            # img = image.load_img(fs + row[1])
             img_data = prepare_image(img)
 
             # prepare for tf serving service
@@ -88,7 +98,10 @@ def create_top_n_vectors():
             # print(result_vec)
 
             # for milvus request
-            ids.append(str(row[0]))
+            ids.append(row[0])
+
+            artifact_types.append({"artifactType":1})
+
             vectors.append(result_vec.tolist())
 
             ok_list.append(str(row[0]))
@@ -104,12 +117,14 @@ def create_top_n_vectors():
             logger.error(e)
 
     try:
-        # save the n vector to the Milvus DB
-        data_milvus = json.dumps({"ids": ids, "vectors": vectors})
-        resp_milvus = requests.post(milvus_url, data=data_milvus, headers=headers)
-        # logger.info(resp_milvus)
+        # save the n vector to the Qdrant
+        if(len(vectors) > 0):
+            data_json = json.dumps({"batch": {"ids":ids, "payloads":artifact_types, "vectors":vectors} })
+            # logger.info(data_json)
+
+            response = requests.put(qdrant_url, data=data_json, headers=headers)
     except Exception as e:
-        logger.error("MILVUS post request error")
+        logger.error("QDRANT put request error")
         logger.error(e)
 
     try:
@@ -133,11 +148,9 @@ def create_top_n_vectors():
 def create_all():
     while True:
         records_len = create_top_n_vectors()
+        print(str(records_len) + " vectors created successfully")
         logger.info(str(records_len) + " vectors created successfully")
         time.sleep(GAP)
-        if records_len == 0:
-            logger.info("No record found to get the vector")
-            # break
 
 
 if __name__ == "__main__":

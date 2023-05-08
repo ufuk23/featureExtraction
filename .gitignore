@@ -1,6 +1,9 @@
 # weights
 *.h5
+*.pyc
+*.log
 venv/
 .idea/
 resnet50/
-
+classification_models/__pycache__
+classification_models/models/__pycache__

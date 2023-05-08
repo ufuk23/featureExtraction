@@ -1,0 +1,8 @@
+scipy==1.6.3
+requests==2.22.0
+pymssql==2.2.1
+pymilvus==2.0.0
+Flask==1.1.2
+numpy==1.19.5
+Pillow==8.3.2
+scikit_learn==0.24.2

@@ -1,0 +1,11 @@
+[Unit]
+Description=MUES Vector Service
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/home/docker/featureExtraction/venv/bin/python3 /home/docker/featureExtraction/vectorSearchServer.py --serve-in-foreground
+StandardInput=tty-force
+
+[Install]
+WantedBy=multi-user.target

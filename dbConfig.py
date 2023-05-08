@@ -1,0 +1,5 @@
+server='10.1.37.177'
+port='1033'
+user='muest'
+password='Mues*test.1'
+database='mues_test'
