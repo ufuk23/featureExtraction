@@ -97,7 +97,7 @@ def create_top_n_vectors():
             result_vec = np.round(scaled_vec, 2)
             # print(result_vec)
 
-            # for milvus request
+            # for qdrant request
             ids.append(row[0])
 
             artifact_types.append({"artifactType":1})
