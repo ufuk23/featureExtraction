@@ -59,7 +59,7 @@ def connect_to_db():
 
 def create_top_n_vectors():
     cursor = conn.cursor()
-    cursor.execute("select TOP 100 F.ESER_ID, F.FOTOGRAF_PATH, F.FEATURE_VECTOR_STATE, F.VECTOR from ESER_FOTOGRAF F "
+    cursor.execute("select TOP 100 F.ESER_ID, F.FOTOGRAF_PATH, F.FEATURE_VECTOR_STATE, F.VECTOR from ESER_FOTOGRAF F with (nolock) "
                    "LEFT JOIN ESER E ON F.ESER_ID=E.ID "
                    "WHERE permanentId is not NULL AND E.AKTIF=1 AND E.SILINMIS=0 AND F.ANA_FOTOGRAF=1 AND F.FEATURE_VECTOR_STATE is NULL ORDER BY F.ESER_ID")
 
