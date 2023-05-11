@@ -1,8 +1,10 @@
-scipy==1.6.3
+Werkzeug==2.0.3
+Jinja2==3.0.3
+itsdangerous==2.0.1
 requests==2.22.0
-pymssql==2.2.1
-pymilvus==2.0.0
-Flask==1.1.2
 numpy==1.19.5
-Pillow==8.3.2
-scikit_learn==0.24.2
+Flask==1.1.2
+pymssql==2.2.1
+scipy==1.6.3
+Pillow==9.0.1
+scikit_learn==1.0.2

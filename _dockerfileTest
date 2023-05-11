@@ -10,6 +10,6 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./qdrant_store_vectors_to_db.py ./
+COPY ./test.py ./
 
-CMD ["python", "-u", "./qdrant_store_vectors_to_db.py"]
+CMD ["python", "./test.py"]

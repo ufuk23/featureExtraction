@@ -7,12 +7,6 @@ from sklearn.preprocessing import minmax_scale
 import json
 import time
 import logging
-from pymilvus import (
-    connections,
-    utility,
-    FieldSchema, CollectionSchema, DataType,
-    Collection,
-)
 
 
 # Gets or creates a logger

@@ -7,6 +7,12 @@ import os
 import json
 import requests
 import logging
+from pymilvus import (
+    connections,
+    utility,
+    FieldSchema, CollectionSchema, DataType,
+    Collection,
+)
 
 app = flask.Flask(__name__)
 #UPLOAD_FOLDER = "/home/muesd/similarity/uploads"
@@ -43,12 +49,13 @@ def prepare_image(img, target_size=(224,224)):
     return img
 
 
-# gets the feature vector from tf serving model and search it on vector DB
+# gets the feature vector from tf serving model and search it on Milvus DB
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
         test_img = None
         vectors = []
+        req_id_list = []
 
         app.logger.info("prediction service has called")
 
@@ -67,10 +74,9 @@ def predict():
                 test_img = Image.open(io.BytesIO(test_img))
                 # fileName = flask.request.args.get("filename")
 
-        req_artifact_type = flask.request.form.get("artifact_type")
+        req_artifact_type = flask.request.form.get("artifactType")
         print("artifactType: ", req_artifact_type)
         req_ids = flask.request.form.get("ids")
-
         print("img: ", test_img)
         img_data = prepare_image(test_img)
 
@@ -78,9 +84,7 @@ def predict():
         # give the photo and get the vector from the model
         data = json.dumps({"signature_name": "serving_default", "instances": img_data.tolist()})
         response = requests.post(tf_serving_url, data=data, headers=headers)
-
         dict_resp = json.loads(response.text)
-
         feature_np = np.array(dict_resp["predictions"])
         # min-max scale the data between 0 and 1
         scaled_vec = minmax_scale(feature_np.flatten())
@@ -89,34 +93,35 @@ def predict():
         print(result_vec)
 
         # qdrant search rest api
-        if req_ids == None:
-            print("Full scan is going to perform")
-            json_search = {
-                'limit': 100,
-                'vector': result_vec.tolist()
-            }
-        else:
-           req_ids = req_ids.strip()
-           if req_ids[-1] == ',':
-               req_ids = req_ids.strip()[:-1]
+        if 
+        json_search = {
+            'limit': 100,
+            'vector': result_vec
+        }
 
-           id_list = [int(item) for item in req_ids.split(',')]
-           must_list = [{'has_id': id_list}]
 
-           json_search = {
-                'filter': {
-                    'must': must_list
-                },
-                'limit': 100,
-                'vector': result_vec.tolist()
-           }
+        json_search = {
+            'limit': 100,
+            'vector': result_vec
+        }
+
+	    "filter": {
+        "must": [
+            { "has_id": req_id_list}
+        ]
+        },
 
         response = requests.post(qdrant_search_url, data=json.dumps(json_search), headers=headers)
 
-        json_response = response.json()
-        json_data = json_response['result']
+        print("json_search: ", json_search)
+        print("QDRANT RESPONSE:", response)
+        json_data=[]
 
-        print("QDRANT RESPONSE: ", json.dumps(json_data))
+        for hits in resp_milvus:
+            for h in hits:
+                json_data.append({'id': h.id, 'distance':h.distance, 'artifact_type':h.entity.get('artifact_type')})
+
+        print(json.dumps(json_data))
         return json.dumps(json_data)
 
     except ValueError as e:

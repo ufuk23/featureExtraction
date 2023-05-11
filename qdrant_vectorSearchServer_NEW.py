@@ -1,14 +1,14 @@
 import numpy as np
 from sklearn.preprocessing import minmax_scale
 from PIL import Image
-import flask
+from flask import Flask, request
 import io
 import os
 import json
 import requests
 import logging
 
-app = flask.Flask(__name__)
+app = Flask(__name__)
 #UPLOAD_FOLDER = "/home/muesd/similarity/uploads"
 #app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
@@ -43,7 +43,7 @@ def prepare_image(img, target_size=(224,224)):
     return img
 
 
-# gets the feature vector from tf serving model and search it on vector DB
+# gets the feature vector from tf serving model and search it on Milvus DB
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
@@ -52,8 +52,10 @@ def predict():
 
         app.logger.info("prediction service has called")
 
-        if flask.request.method == "POST":
-            if flask.request.files.get("image"):
+        # print("ids", request.form.get("ids"))
+
+        if request.method == "POST":
+            if request.files['image']:
 
                 #file = flask.request.files["image"]
                 #path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
@@ -63,13 +65,13 @@ def predict():
                 # test_img = image.load_img(path, target_size=(224,224))
                 #test_img = image.load_img(path) #  bu sekilde PIL imdage load ile ayni oluyor
                 print("POST req is done")
-                test_img = flask.request.files["image"].read()
+                test_img = request.files["image"].read()
                 test_img = Image.open(io.BytesIO(test_img))
                 # fileName = flask.request.args.get("filename")
 
-        req_artifact_type = flask.request.form.get("artifact_type")
+        req_artifact_type = request.form.get("artifact_type")
         print("artifactType: ", req_artifact_type)
-        req_ids = flask.request.form.get("ids")
+        req_ids = request.form.get("ids")
 
         print("img: ", test_img)
         img_data = prepare_image(test_img)
@@ -90,7 +92,6 @@ def predict():
 
         # qdrant search rest api
         if req_ids == None:
-            print("Full scan is going to perform")
             json_search = {
                 'limit': 100,
                 'vector': result_vec.tolist()
