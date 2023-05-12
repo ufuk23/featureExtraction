@@ -1,3 +1,5 @@
+import os
+from configparser import ConfigParser
 import pymssql
 from PIL import Image
 import requests
@@ -7,6 +9,29 @@ from sklearn.preprocessing import minmax_scale
 import json
 import time
 import logging
+
+# Environment params is mandatory
+configfile = os.environ['configfile']
+
+print("config file name: %s" % configfile)
+
+# Get the configparser object
+config_object = ConfigParser(interpolation=None)
+
+# path
+path = "/home/docker/muesconfig/" + configfile
+
+# Read config
+config_object.read(path)
+
+# Get the database config object
+global dbinfo
+dbinfo = config_object["DATABASE"]
+print("DATABASE = " + dbinfo["database"])
+artifact_type = dbinfo["artifact_type"]
+print("artifact_type = " + dbinfo["artifact_type"])
+image_path = dbinfo["image_path"]
+print("image_path = " + dbinfo["image_path"])
 
 
 # Gets or creates a logger
@@ -30,7 +55,8 @@ headers = {"content-type": "application/json"}
 
 # mount path to access the file Server
 # fs = "/mnt/muesfs/mues-images/image/ak/" # prod
-fs = "/mnt/muesfs/mues/mues-images/dev/image/ak/" # dev
+fs = "/mnt/muesfs" + image_path # from config file
+print("fileSystem image path = " + fs)
 
 # QDRANT REST API URL
 qdrant_url = 'http://localhost:6333/collections/artifact/points'
@@ -51,7 +77,8 @@ def prepare_image(img, target_size=(224,224)):
 def connect_to_db():
     global conn
     try:
-        conn = pymssql.connect(server='10.1.37.177', port='1033', user='muest', password='Mues*test.1', database='mues_test')
+        # conn = pymssql.connect(server='10.1.37.177', port='1033', user='muest', password='Mues*test.1', database='mues_test')
+        conn = pymssql.connect(server=dbinfo["ip"], port=dbinfo["port"], user=dbinfo["user"], password=dbinfo["password"], database=dbinfo["database"])
         logger.info('DB connected successfully')
     except Exception as e:
         logger.critical(e)
@@ -59,13 +86,11 @@ def connect_to_db():
 
 def create_top_n_vectors():
     cursor = conn.cursor()
-    cursor.execute("select TOP 100 F.ESER_ID, F.FOTOGRAF_PATH, F.FEATURE_VECTOR_STATE, F.VECTOR from ESER_FOTOGRAF F with (nolock) "
-                   "LEFT JOIN ESER E ON F.ESER_ID=E.ID "
-                   "WHERE permanentId is not NULL AND E.AKTIF=1 AND E.SILINMIS=0 AND F.ANA_FOTOGRAF=1 AND F.FEATURE_VECTOR_STATE is NULL ORDER BY F.ESER_ID")
+    cursor.execute(dbinfo["select_query"])
 
     records = cursor.fetchall()
 
-    sql_for_exception = "UPDATE ESER_FOTOGRAF SET FEATURE_VECTOR_STATE='-1' where ANA_FOTOGRAF=1 and ESER_ID=%s"
+    sql_for_exception = dbinfo["update_query_failure"]
 
     for row in records:
         try:
@@ -96,11 +121,21 @@ def create_top_n_vectors():
                 vector = json.loads(row[3])
                 print("the vector is in the DB")
 
+            # mues uid
+            uid = row[0]
+
+            if artifact_type == 2:
+                # kam uid
+                uid = 200000000 + int(row[0])
+            elif artifact_type == 3:
+                # omk uid
+                uid = 500000000 + int(row[0])
+
             json_data = {
                 "points":[
                     {
-                        "id": row[0],
-                        "payload": {"artifact": 1},
+                        "id": uid,
+                        "payload": {"artifact": artifact_type},
                         "vector": vector
                     }
                 ]
@@ -114,7 +149,7 @@ def create_top_n_vectors():
 
             # update state and vector
             params = ('1', json.dumps(vector), row[0])
-            cursor.execute("UPDATE ESER_FOTOGRAF SET FEATURE_VECTOR_STATE=%s, VECTOR=%s where ANA_FOTOGRAF=1 and ESER_ID=%s", params)
+            cursor.execute(dbinfo["update_query_success"], params)
             conn.commit()
             print("commit performed")
 
